@@ -12,11 +12,90 @@ include 'win32wx.inc'
 
 ; ----- application constants --------------------------------------------------
 
-APP_VERSION        equ 3
+APP_VERSION        equ 131
 MAX_PATH_CHARS     equ 260
 TITLE_CHARS        equ 640
 MAX_FILE_BYTES     equ 134217728       ; 128 MiB safety limit for this simple editor
 INVALID_FILE_SIZE_VALUE equ 0FFFFFFFFh ; GetFileSize failure sentinel
+
+IDR_ICON           equ 101
+
+UI_LANG_ENGLISH       equ 0
+UI_LANG_GERMAN        equ 1
+UI_LANG_FRENCH        equ 2
+UI_LANG_PORTUGUESE    equ 3
+UI_LANG_DANISH        equ 4
+UI_LANG_UKRAINIAN     equ 5
+UI_LANG_RUSSIAN       equ 6
+UI_LANG_CHINESE       equ 7
+UI_LANG_KOREAN        equ 8
+UI_LANG_ARABIC        equ 9
+UI_LANG_TURKISH       equ 10
+LANGUAGE_COUNT     equ 11
+
+THEME_LIGHT        equ 0
+THEME_DARK         equ 1
+THEME_AURORA       equ 2
+THEME_MATRIX       equ 3
+
+STR_TOP_FILE                 equ 0
+STR_TOP_EDIT                 equ 1
+STR_TOP_FORMAT               equ 2
+STR_TOP_ENCODING             equ 3
+STR_TOP_LANGUAGE             equ 4
+STR_TOP_HELP                 equ 5
+STR_FILE_NEW                 equ 6
+STR_FILE_OPEN                equ 7
+STR_FILE_SAVE                equ 8
+STR_FILE_SAVE_AS             equ 9
+STR_FILE_PRINT               equ 10
+STR_FILE_EXIT                equ 11
+STR_EDIT_UNDO                equ 12
+STR_EDIT_FIND                equ 13
+STR_EDIT_FIND_NEXT           equ 14
+STR_EDIT_REPLACE             equ 15
+STR_EDIT_CUT                 equ 16
+STR_EDIT_COPY                equ 17
+STR_EDIT_PASTE               equ 18
+STR_EDIT_DELETE              equ 19
+STR_EDIT_SELECT_ALL          equ 20
+STR_FORMAT_WRAP              equ 21
+STR_FORMAT_FONT              equ 22
+STR_FORMAT_THEME             equ 23
+STR_THEME_LIGHT              equ 24
+STR_THEME_DARK               equ 25
+STR_THEME_AURORA             equ 26
+STR_THEME_MATRIX             equ 27
+STR_ENC_RELOAD               equ 28
+STR_HELP_ABOUT               equ 29
+STR_FIND_TITLE               equ 30
+STR_FIND_LABEL               equ 31
+STR_REPLACE_LABEL            equ 32
+STR_MATCH_CASE               equ 33
+STR_WHOLE_WORD               equ 34
+STR_FIND_NEXT_BTN            equ 35
+STR_REPLACE_BTN              equ 36
+STR_REPLACE_ALL_BTN          equ 37
+STR_CLOSE_BTN                equ 38
+STR_STATUS_FORMAT            equ 39
+STR_UNTITLED                 equ 40
+STR_MSG_FATAL                equ 41
+STR_MSG_SAVE                 equ 42
+STR_MSG_OPEN                 equ 43
+STR_MSG_READ                 equ 44
+STR_MSG_WRITE                equ 45
+STR_MSG_MEMORY               equ 46
+STR_MSG_CONVERSION           equ 47
+STR_MSG_TOO_LARGE            equ 48
+STR_MSG_LOSSY                equ 49
+STR_MSG_ENTER_SEARCH         equ 50
+STR_MSG_NOT_FOUND            equ 51
+STR_MSG_PRINT                equ 52
+STR_ABOUT_TEXT               equ 53
+STR_FILE_FILTER              equ 54
+STR_REPLACE_ALL_FORMAT       equ 55
+STR_MSG_FONT_ERROR           equ 56
+LANG_STRING_COUNT  equ 57
 IDC_EDITOR         equ 1001
 IDC_STATUS         equ 1002
 
@@ -44,6 +123,12 @@ ID_EDIT_REPLACE    equ 2108
 ID_EDIT_FIND_NEXT  equ 2109
 
 ID_FORMAT_WRAP     equ 2201
+ID_FORMAT_FONT     equ 2202
+
+ID_THEME_LIGHT     equ 2251
+ID_THEME_DARK      equ 2252
+ID_THEME_AURORA    equ 2253
+ID_THEME_MATRIX    equ 2254
 
 ID_ENC_UTF8        equ 2301
 ID_ENC_UTF8_BOM    equ 2302
@@ -59,10 +144,24 @@ ID_ENC_RELOAD      equ 2311
 
 ID_HELP_ABOUT      equ 2401
 
+ID_LANG_ENGLISH    equ 2501
+ID_LANG_GERMAN     equ 2502
+ID_LANG_FRENCH     equ 2503
+ID_LANG_PORTUGUESE equ 2504
+ID_LANG_DANISH     equ 2505
+ID_LANG_UKRAINIAN  equ 2506
+ID_LANG_RUSSIAN    equ 2507
+ID_LANG_CHINESE    equ 2508
+ID_LANG_KOREAN     equ 2509
+ID_LANG_ARABIC     equ 2510
+ID_LANG_TURKISH    equ 2511
+
 IDC_FIND_TEXT      equ 3101
 IDC_REPLACE_TEXT   equ 3102
 IDC_MATCH_CASE     equ 3103
 IDC_WHOLE_WORD     equ 3104
+IDC_FIND_LABEL     equ 3105
+IDC_REPLACE_LABEL  equ 3106
 ID_FIND_NEXT       equ 3111
 ID_REPLACE_ONE     equ 3112
 ID_REPLACE_ALL     equ 3113
@@ -120,6 +219,14 @@ DT_EXPANDTABS_VALUE       equ 00000040h
 DT_CALCRECT_VALUE         equ 00000400h
 DT_NOPREFIX_VALUE         equ 00000800h
 
+GWL_WNDPROC_VALUE          equ -4
+MK_CONTROL_VALUE           equ 0008h
+WM_MOUSEWHEEL_VALUE        equ 020Ah
+
+MIN_FONT_HEIGHT            equ -72
+MAX_FONT_HEIGHT            equ -8
+FONT_ZOOM_STEP             equ 2
+
 ; ----- program entry ----------------------------------------------------------
 
 section '.text' code readable executable
@@ -129,7 +236,11 @@ start:
         mov     [hInstance],eax
         mov     [wc.hInstance],eax
 
+        invoke  LoadIconW,[hInstance],IDR_ICON
+        test    eax,eax
+        jnz     .icon_ready
         invoke  LoadIconW,0,IDI_APPLICATION
+.icon_ready:
         mov     [wc.hIcon],eax
         invoke  LoadCursorW,0,IDC_ARROW
         mov     [wc.hCursor],eax
@@ -201,7 +312,7 @@ start:
         invoke  ExitProcess,eax
 
 fatal_start:
-        invoke  MessageBoxW,0,msgFatalStart,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,0,STR_MSG_FATAL,MB_OK or MB_ICONERROR
         invoke  ExitProcess,1
 
 ; ----- main window procedure --------------------------------------------------
@@ -213,6 +324,14 @@ proc WindowProc hwnd,wmsg,wparam,lparam
         je      .wm_create
         cmp     dword [wmsg],WM_SIZE
         je      .wm_size
+        cmp     dword [wmsg],WM_ERASEBKGND
+        je      .wm_erase_background
+        cmp     dword [wmsg],WM_CTLCOLOREDIT
+        je      .wm_color_edit
+        cmp     dword [wmsg],WM_CTLCOLORSTATIC
+        je      .wm_color_static
+        cmp     dword [wmsg],WM_CTLCOLORBTN
+        je      .wm_color_button
         cmp     dword [wmsg],WM_SETFOCUS
         je      .wm_setfocus
         cmp     dword [wmsg],WM_COMMAND
@@ -233,9 +352,11 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 .wm_create:
         mov     eax,[hwnd]
         mov     [hWndMain],eax
+        call    InitializeEditorFont
         call    CreateApplicationMenu
         call    CreateEditor
         call    CreateStatusLine
+        call    ApplyTheme
         call    LayoutControls
         invoke  SetTimer,[hwnd],STATUS_TIMER_ID,STATUS_TIMER_MS,0
         invoke  DragAcceptFiles,[hwnd],TRUE
@@ -247,6 +368,37 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 
 .wm_size:
         call    LayoutControls
+        jmp     .handled_zero
+
+.wm_erase_background:
+        cmp     dword [hThemeBrush],0
+        je      .default
+        invoke  GetClientRect,[hwnd],clientRect
+        invoke  FillRect,[wparam],clientRect,dword [hThemeBrush]
+        mov     eax,1
+        jmp     .finish
+
+.wm_color_edit:
+        invoke  SetTextColor,[wparam],dword [themeTextColor]
+        invoke  SetBkColor,[wparam],dword [themeBackColor]
+        mov     eax,dword [hThemeBrush]
+        jmp     .finish
+
+.wm_color_static:
+        mov     eax,[lparam]
+        cmp     eax,dword [hStatus]
+        jne     .wm_color_edit
+        invoke  SetTextColor,[wparam],dword [themeStatusTextColor]
+        invoke  SetBkColor,[wparam],dword [themeStatusBackColor]
+        mov     eax,dword [hThemeStatusBrush]
+        jmp     .finish
+
+.wm_color_button:
+        invoke  SetTextColor,[wparam],dword [themeTextColor]
+        invoke  SetBkColor,[wparam],dword [themeBackColor]
+        mov     eax,dword [hThemeBrush]
+        jmp     .finish
+
 .handled_zero:
         xor     eax,eax
         jmp     .finish
@@ -317,7 +469,29 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 
         cmp     eax,ID_FORMAT_WRAP
         je      .cmd_wrap
+        cmp     eax,ID_FORMAT_FONT
+        je      .cmd_font
 
+        cmp     eax,ID_THEME_LIGHT
+        jb      .check_language
+        cmp     eax,ID_THEME_MATRIX
+        ja      .check_language
+        sub     eax,ID_THEME_LIGHT
+        mov     dword [currentTheme],eax
+        call    ApplyTheme
+        jmp     .handled_zero
+
+.check_language:
+        cmp     eax,ID_LANG_ENGLISH
+        jb      .check_encoding
+        cmp     eax,ID_LANG_TURKISH
+        ja      .check_encoding
+        sub     eax,ID_LANG_ENGLISH
+        mov     dword [currentLanguage],eax
+        call    ApplyLanguage
+        jmp     .handled_zero
+
+.check_encoding:
         cmp     eax,ID_ENC_UTF8
         je      .enc_utf8
         cmp     eax,ID_ENC_UTF8_BOM
@@ -394,11 +568,15 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 .cmd_wrap:
         call    ToggleWordWrap
         jmp     .handled_zero
+.cmd_font:
+        call    ChooseEditorFont
+        jmp     .handled_zero
 .cmd_reload:
         call    ReloadCurrentDocument
         jmp     .handled_zero
 .cmd_about:
-        invoke  MessageBoxW,[hwnd],aboutText,appName,MB_OK or MB_ICONINFORMATION
+        stdcall GetLangString,STR_ABOUT_TEXT
+        invoke  MessageBoxW,[hwnd],eax,appName,MB_OK or MB_ICONINFORMATION
         jmp     .handled_zero
 
 .enc_utf8:
@@ -466,6 +644,14 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 .wm_destroy:
         invoke  KillTimer,[hwnd],STATUS_TIMER_ID
         invoke  DragAcceptFiles,[hwnd],FALSE
+        call    CleanupTheme
+        cmp     dword [ownsEditorFont],0
+        je      .font_clean
+        cmp     dword [hEditorFont],0
+        je      .font_clean
+        invoke  DeleteObject,dword [hEditorFont]
+        mov     dword [hEditorFont],0
+.font_clean:
         invoke  PostQuitMessage,0
         xor     eax,eax
 
@@ -492,10 +678,14 @@ CreateEditor:
         test    eax,eax
         jz      .done
 
-        invoke  GetStockObject,DEFAULT_GUI_FONT
-        mov     [hEditorFont],eax
-        invoke  SendMessageW,dword [hEdit],WM_SETFONT,[hEditorFont],TRUE
+        cmp     dword [hEditorFont],0
+        jne     .font_ready
+        call    InitializeEditorFont
+.font_ready:
+        invoke  SendMessageW,dword [hEdit],WM_SETFONT,dword [hEditorFont],TRUE
         invoke  SendMessageW,dword [hEdit],EM_SETLIMITTEXT,07FFFFFFEh,0
+        invoke  SetWindowLongW,dword [hEdit],GWL_WNDPROC_VALUE,EditorProc
+        mov     dword [hOldEditProc],eax
 .done:
         ret
 
@@ -506,12 +696,12 @@ CreateStatusLine:
         mov     dword [hStatus],eax
         test    eax,eax
         jz      .done
-        cmp     dword [hEditorFont],0
+        cmp     dword [hUiFont],0
         jne     .font_ready
         invoke  GetStockObject,DEFAULT_GUI_FONT
-        mov     dword [hEditorFont],eax
+        mov     dword [hUiFont],eax
 .font_ready:
-        invoke  SendMessageW,dword [hStatus],WM_SETFONT,dword [hEditorFont],TRUE
+        invoke  SendMessageW,dword [hStatus],WM_SETFONT,dword [hUiFont],TRUE
 .done:
         ret
 
@@ -535,6 +725,318 @@ LayoutControls:
 .done:
         ret
 
+
+; ----- localization, font, zoom, and themes ----------------------------------
+
+proc GetLangString index
+        push    ebx
+        mov     eax,dword [currentLanguage]
+        cmp     eax,LANGUAGE_COUNT
+        jb      .language_ok
+        xor     eax,eax
+.language_ok:
+        mov     ebx,dword [languageTablePointers+eax*4]
+        mov     ecx,[index]
+        cmp     ecx,LANG_STRING_COUNT
+        jb      .index_ok
+        xor     ecx,ecx
+.index_ok:
+        mov     eax,dword [ebx+ecx*4]
+        pop     ebx
+        ret
+endp
+
+proc ShowLangMessage owner,index,flags
+        stdcall GetLangString,[index]
+        invoke  MessageBoxW,[owner],eax,appName,[flags]
+        ret
+endp
+
+InitializeEditorFont:
+        cmp     dword [hUiFont],0
+        jne     .ui_ready
+        invoke  GetStockObject,DEFAULT_GUI_FONT
+        mov     dword [hUiFont],eax
+.ui_ready:
+        cmp     dword [hEditorFont],0
+        jne     .done
+        invoke  GetObjectW,dword [hUiFont],sizeof.LOGFONT,editorLogFont
+        test    eax,eax
+        jz      .fallback
+        cmp     dword [editorLogFont.lfHeight],0
+        jne     .create
+        mov     dword [editorLogFont.lfHeight],-16
+.create:
+        invoke  CreateFontIndirectW,editorLogFont
+        test    eax,eax
+        jz      .fallback
+        mov     dword [hEditorFont],eax
+        mov     dword [ownsEditorFont],1
+        ret
+.fallback:
+        mov     eax,dword [hUiFont]
+        mov     dword [hEditorFont],eax
+        mov     dword [ownsEditorFont],0
+.done:
+        ret
+
+RecreateEditorFont:
+        push    ebx esi
+        invoke  CreateFontIndirectW,editorLogFont
+        test    eax,eax
+        jz      .failed
+        mov     esi,eax
+        mov     ebx,dword [hEditorFont]
+        mov     eax,dword [ownsEditorFont]
+        mov     dword [oldFontOwned],eax
+        mov     dword [hEditorFont],esi
+        mov     dword [ownsEditorFont],1
+        cmp     dword [hEdit],0
+        je      .delete_old
+        invoke  SendMessageW,dword [hEdit],WM_SETFONT,esi,TRUE
+        invoke  InvalidateRect,dword [hEdit],0,TRUE
+.delete_old:
+        cmp     dword [oldFontOwned],0
+        je      .success
+        test    ebx,ebx
+        jz      .success
+        invoke  DeleteObject,ebx
+.success:
+        mov     eax,1
+        jmp     .finish
+.failed:
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_FONT_ERROR,MB_OK or MB_ICONERROR
+        xor     eax,eax
+.finish:
+        pop     esi ebx
+        ret
+
+ChooseEditorFont:
+        mov     dword [fontDialog.lStructSize],sizeof.CHOOSEFONT
+        mov     eax,dword [hWndMain]
+        mov     dword [fontDialog.hwndOwner],eax
+        mov     dword [fontDialog.hDC],0
+        mov     dword [fontDialog.lpLogFont],editorLogFont
+        mov     dword [fontDialog.iPointSize],0
+        mov     dword [fontDialog.Flags],CF_SCREENFONTS or CF_INITTOLOGFONTSTRUCT or CF_FORCEFONTEXIST
+        mov     dword [fontDialog.rgbColors],0
+        mov     dword [fontDialog.lCustData],0
+        mov     dword [fontDialog.lpfnHook],0
+        mov     dword [fontDialog.lpTemplateName],0
+        mov     dword [fontDialog.hInstance],0
+        mov     dword [fontDialog.lpszStyle],0
+        mov     word [fontDialog.nFontType],0
+        mov     word [fontDialog.wReserved],0
+        mov     dword [fontDialog.nSizeMin],0
+        mov     dword [fontDialog.nSizeMax],0
+        invoke  ChooseFontW,fontDialog
+        test    eax,eax
+        jz      .done
+        call    RecreateEditorFont
+.done:
+        ret
+
+proc AdjustFontZoom direction
+        mov     eax,dword [editorLogFont.lfHeight]
+        test    eax,eax
+        js      .height_ready
+        mov     eax,-16
+.height_ready:
+        cmp     dword [direction],0
+        jle     .zoom_out
+        sub     eax,FONT_ZOOM_STEP
+        cmp     eax,MIN_FONT_HEIGHT
+        jge     .set_height
+        mov     eax,MIN_FONT_HEIGHT
+        jmp     .set_height
+.zoom_out:
+        add     eax,FONT_ZOOM_STEP
+        cmp     eax,MAX_FONT_HEIGHT
+        jle     .set_height
+        mov     eax,MAX_FONT_HEIGHT
+.set_height:
+        cmp     eax,dword [editorLogFont.lfHeight]
+        je      .done
+        mov     dword [editorLogFont.lfHeight],eax
+        call    RecreateEditorFont
+.done:
+        ret
+endp
+
+proc EditorProc hwnd,wmsg,wparam,lparam
+        cmp     dword [wmsg],WM_MOUSEWHEEL_VALUE
+        jne     .default
+        mov     eax,[wparam]
+        and     eax,0FFFFh
+        test    eax,MK_CONTROL_VALUE
+        jz      .default
+        mov     eax,[wparam]
+        sar     eax,16
+        test    eax,eax
+        jg      .zoom_in
+        stdcall AdjustFontZoom,-1
+        xor     eax,eax
+        ret
+.zoom_in:
+        stdcall AdjustFontZoom,1
+        xor     eax,eax
+        ret
+.default:
+        cmp     dword [hOldEditProc],0
+        je      .def_window
+        invoke  CallWindowProcW,dword [hOldEditProc],[hwnd],[wmsg],[wparam],[lparam]
+        ret
+.def_window:
+        invoke  DefWindowProcW,[hwnd],[wmsg],[wparam],[lparam]
+        ret
+endp
+
+CleanupTheme:
+        cmp     dword [hThemeBrush],0
+        je      .status
+        invoke  DeleteObject,dword [hThemeBrush]
+        mov     dword [hThemeBrush],0
+.status:
+        cmp     dword [hThemeStatusBrush],0
+        je      .done
+        invoke  DeleteObject,dword [hThemeStatusBrush]
+        mov     dword [hThemeStatusBrush],0
+.done:
+        ret
+
+ApplyTheme:
+        call    CleanupTheme
+        mov     eax,dword [currentTheme]
+        cmp     eax,THEME_DARK
+        je      .dark
+        cmp     eax,THEME_AURORA
+        je      .aurora
+        cmp     eax,THEME_MATRIX
+        je      .matrix
+.light:
+        mov     dword [themeBackColor],00FFFFFFh
+        mov     dword [themeTextColor],00241C18h
+        mov     dword [themeStatusBackColor],00F8F4F1h
+        mov     dword [themeStatusTextColor],00483A32h
+        jmp     .create_brushes
+.dark:
+        mov     dword [themeBackColor],0028201Eh
+        mov     dword [themeTextColor],00F5EEEBh
+        mov     dword [themeStatusBackColor],00352A27h
+        mov     dword [themeStatusTextColor],00E1D4CEh
+        jmp     .create_brushes
+.aurora:
+        mov     dword [themeBackColor],002B1416h
+        mov     dword [themeTextColor],00FFF6E2h
+        mov     dword [themeStatusBackColor],00441D25h
+        mov     dword [themeStatusTextColor],00E2EE7Bh
+        jmp     .create_brushes
+.matrix:
+        mov     dword [themeBackColor],00081200h
+        mov     dword [themeTextColor],0080FF4Ah
+        mov     dword [themeStatusBackColor],000D1F00h
+        mov     dword [themeStatusTextColor],0093FF62h
+.create_brushes:
+        invoke  CreateSolidBrush,dword [themeBackColor]
+        mov     dword [hThemeBrush],eax
+        invoke  CreateSolidBrush,dword [themeStatusBackColor]
+        mov     dword [hThemeStatusBrush],eax
+        call    UpdateThemeMenu
+        cmp     dword [hWndMain],0
+        je      .find
+        invoke  InvalidateRect,dword [hWndMain],0,TRUE
+.find:
+        cmp     dword [hFindReplace],0
+        je      .done
+        invoke  InvalidateRect,dword [hFindReplace],0,TRUE
+.done:
+        ret
+
+UpdateThemeMenu:
+        cmp     dword [hThemeMenu],0
+        je      .done
+        mov     eax,dword [currentTheme]
+        add     eax,ID_THEME_LIGHT
+        invoke  CheckMenuRadioItem,dword [hThemeMenu],ID_THEME_LIGHT,ID_THEME_MATRIX,eax,MF_BYCOMMAND
+.done:
+        ret
+
+UpdateLanguageMenu:
+        cmp     dword [hLanguageMenu],0
+        je      .done
+        mov     eax,dword [currentLanguage]
+        add     eax,ID_LANG_ENGLISH
+        invoke  CheckMenuRadioItem,dword [hLanguageMenu],ID_LANG_ENGLISH,ID_LANG_TURKISH,eax,MF_BYCOMMAND
+.done:
+        ret
+
+ApplyLanguage:
+        call    RebuildApplicationMenu
+        call    UpdateFindReplaceLanguage
+        call    UpdateTitle
+        call    UpdateStatusLine
+        ret
+
+RebuildApplicationMenu:
+        cmp     dword [hMainMenu],0
+        je      .create
+        invoke  SetMenu,dword [hWndMain],0
+        invoke  DestroyMenu,dword [hMainMenu]
+        mov     dword [hMainMenu],0
+        mov     dword [hFileMenu],0
+        mov     dword [hEditMenu],0
+        mov     dword [hFormatMenu],0
+        mov     dword [hThemeMenu],0
+        mov     dword [hEncodingMenu],0
+        mov     dword [hLanguageMenu],0
+        mov     dword [hHelpMenu],0
+.create:
+        call    CreateApplicationMenu
+        ret
+
+UpdateFindReplaceLanguage:
+        cmp     dword [hFindReplace],0
+        je      .done
+        stdcall GetLangString,STR_FIND_TITLE
+        invoke  SetWindowTextW,dword [hFindReplace],eax
+
+        invoke  GetDlgItem,dword [hFindReplace],IDC_FIND_LABEL
+        mov     ebx,eax
+        stdcall GetLangString,STR_FIND_LABEL
+        invoke  SetWindowTextW,ebx,eax
+
+        invoke  GetDlgItem,dword [hFindReplace],IDC_REPLACE_LABEL
+        mov     ebx,eax
+        stdcall GetLangString,STR_REPLACE_LABEL
+        invoke  SetWindowTextW,ebx,eax
+
+        stdcall GetLangString,STR_MATCH_CASE
+        invoke  SetWindowTextW,dword [hMatchCase],eax
+        stdcall GetLangString,STR_WHOLE_WORD
+        invoke  SetWindowTextW,dword [hWholeWord],eax
+
+        invoke  GetDlgItem,dword [hFindReplace],ID_FIND_NEXT
+        mov     ebx,eax
+        stdcall GetLangString,STR_FIND_NEXT_BTN
+        invoke  SetWindowTextW,ebx,eax
+
+        invoke  GetDlgItem,dword [hFindReplace],ID_REPLACE_ONE
+        mov     ebx,eax
+        stdcall GetLangString,STR_REPLACE_BTN
+        invoke  SetWindowTextW,ebx,eax
+
+        invoke  GetDlgItem,dword [hFindReplace],ID_REPLACE_ALL
+        mov     ebx,eax
+        stdcall GetLangString,STR_REPLACE_ALL_BTN
+        invoke  SetWindowTextW,ebx,eax
+
+        invoke  GetDlgItem,dword [hFindReplace],ID_FIND_CLOSE
+        mov     ebx,eax
+        stdcall GetLangString,STR_CLOSE_BTN
+        invoke  SetWindowTextW,ebx,eax
+.done:
+        ret
+
 UpdateStatusLine:
         cmp     dword [hEdit],0
         je      .done
@@ -549,73 +1051,140 @@ UpdateStatusLine:
         invoke  SendMessageW,dword [hEdit],EM_LINEFROMCHAR,-1,0
         inc     eax
         mov     dword [statusLineNumber],eax
-        cinvoke wsprintfW,statusBuffer,statusFormat,dword [statusLineNumber],dword [statusCharCount],dword [statusTokenCount]
+        stdcall GetLangString,STR_STATUS_FORMAT
+        mov     dword [tmpLangPointer],eax
+        cinvoke wsprintfW,statusBuffer,dword [tmpLangPointer],dword [statusLineNumber],dword [statusCharCount],dword [statusTokenCount]
         invoke  SetWindowTextW,dword [hStatus],statusBuffer
 .done:
         ret
 
 CreateApplicationMenu:
         invoke  CreateMenu
-        mov     [hMainMenu],eax
+        mov     dword [hMainMenu],eax
 
         invoke  CreatePopupMenu
-        mov     [hFileMenu],eax
-        invoke  AppendMenuW,[hFileMenu],MF_STRING,ID_FILE_NEW,menuFileNew
-        invoke  AppendMenuW,[hFileMenu],MF_STRING,ID_FILE_OPEN,menuFileOpen
-        invoke  AppendMenuW,[hFileMenu],MF_STRING,ID_FILE_SAVE,menuFileSave
-        invoke  AppendMenuW,[hFileMenu],MF_STRING,ID_FILE_SAVE_AS,menuFileSaveAs
-        invoke  AppendMenuW,[hFileMenu],MF_SEPARATOR,0,0
-        invoke  AppendMenuW,[hFileMenu],MF_STRING,ID_FILE_PRINT,menuFilePrint
-        invoke  AppendMenuW,[hFileMenu],MF_SEPARATOR,0,0
-        invoke  AppendMenuW,[hFileMenu],MF_STRING,ID_FILE_EXIT,menuFileExit
+        mov     dword [hFileMenu],eax
+        stdcall GetLangString,STR_FILE_NEW
+        invoke  AppendMenuW,dword [hFileMenu],MF_STRING,ID_FILE_NEW,eax
+        stdcall GetLangString,STR_FILE_OPEN
+        invoke  AppendMenuW,dword [hFileMenu],MF_STRING,ID_FILE_OPEN,eax
+        stdcall GetLangString,STR_FILE_SAVE
+        invoke  AppendMenuW,dword [hFileMenu],MF_STRING,ID_FILE_SAVE,eax
+        stdcall GetLangString,STR_FILE_SAVE_AS
+        invoke  AppendMenuW,dword [hFileMenu],MF_STRING,ID_FILE_SAVE_AS,eax
+        invoke  AppendMenuW,dword [hFileMenu],MF_SEPARATOR,0,0
+        stdcall GetLangString,STR_FILE_PRINT
+        invoke  AppendMenuW,dword [hFileMenu],MF_STRING,ID_FILE_PRINT,eax
+        invoke  AppendMenuW,dword [hFileMenu],MF_SEPARATOR,0,0
+        stdcall GetLangString,STR_FILE_EXIT
+        invoke  AppendMenuW,dword [hFileMenu],MF_STRING,ID_FILE_EXIT,eax
 
         invoke  CreatePopupMenu
-        mov     [hEditMenu],eax
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_UNDO,menuEditUndo
-        invoke  AppendMenuW,[hEditMenu],MF_SEPARATOR,0,0
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_FIND,menuEditFind
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_FIND_NEXT,menuEditFindNext
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_REPLACE,menuEditReplace
-        invoke  AppendMenuW,[hEditMenu],MF_SEPARATOR,0,0
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_CUT,menuEditCut
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_COPY,menuEditCopy
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_PASTE,menuEditPaste
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_DELETE,menuEditDelete
-        invoke  AppendMenuW,[hEditMenu],MF_SEPARATOR,0,0
-        invoke  AppendMenuW,[hEditMenu],MF_STRING,ID_EDIT_SELECT_ALL,menuEditSelectAll
+        mov     dword [hEditMenu],eax
+        stdcall GetLangString,STR_EDIT_UNDO
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_UNDO,eax
+        invoke  AppendMenuW,dword [hEditMenu],MF_SEPARATOR,0,0
+        stdcall GetLangString,STR_EDIT_FIND
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_FIND,eax
+        stdcall GetLangString,STR_EDIT_FIND_NEXT
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_FIND_NEXT,eax
+        stdcall GetLangString,STR_EDIT_REPLACE
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_REPLACE,eax
+        invoke  AppendMenuW,dword [hEditMenu],MF_SEPARATOR,0,0
+        stdcall GetLangString,STR_EDIT_CUT
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_CUT,eax
+        stdcall GetLangString,STR_EDIT_COPY
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_COPY,eax
+        stdcall GetLangString,STR_EDIT_PASTE
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_PASTE,eax
+        stdcall GetLangString,STR_EDIT_DELETE
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_DELETE,eax
+        invoke  AppendMenuW,dword [hEditMenu],MF_SEPARATOR,0,0
+        stdcall GetLangString,STR_EDIT_SELECT_ALL
+        invoke  AppendMenuW,dword [hEditMenu],MF_STRING,ID_EDIT_SELECT_ALL,eax
 
         invoke  CreatePopupMenu
-        mov     [hFormatMenu],eax
-        invoke  AppendMenuW,[hFormatMenu],MF_STRING or MF_CHECKED,ID_FORMAT_WRAP,menuFormatWrap
+        mov     dword [hFormatMenu],eax
+        stdcall GetLangString,STR_FORMAT_WRAP
+        invoke  AppendMenuW,dword [hFormatMenu],MF_STRING or MF_CHECKED,ID_FORMAT_WRAP,eax
+        stdcall GetLangString,STR_FORMAT_FONT
+        invoke  AppendMenuW,dword [hFormatMenu],MF_STRING,ID_FORMAT_FONT,eax
+        invoke  AppendMenuW,dword [hFormatMenu],MF_SEPARATOR,0,0
 
         invoke  CreatePopupMenu
-        mov     [hEncodingMenu],eax
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_UTF8,menuEncUtf8
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_UTF8_BOM,menuEncUtf8Bom
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_UTF16_LE,menuEncUtf16Le
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_UTF16_BE,menuEncUtf16Be
-        invoke  AppendMenuW,[hEncodingMenu],MF_SEPARATOR,0,0
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_CP1252,menuEncCp1252
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_CP1250,menuEncCp1250
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_CP1251,menuEncCp1251
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_ISO8859_1,menuEncIso
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_CP437,menuEncCp437
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_CP850,menuEncCp850
-        invoke  AppendMenuW,[hEncodingMenu],MF_SEPARATOR,0,0
-        invoke  AppendMenuW,[hEncodingMenu],MF_STRING,ID_ENC_RELOAD,menuEncReload
+        mov     dword [hThemeMenu],eax
+        stdcall GetLangString,STR_THEME_LIGHT
+        invoke  AppendMenuW,dword [hThemeMenu],MF_STRING,ID_THEME_LIGHT,eax
+        stdcall GetLangString,STR_THEME_DARK
+        invoke  AppendMenuW,dword [hThemeMenu],MF_STRING,ID_THEME_DARK,eax
+        stdcall GetLangString,STR_THEME_AURORA
+        invoke  AppendMenuW,dword [hThemeMenu],MF_STRING,ID_THEME_AURORA,eax
+        stdcall GetLangString,STR_THEME_MATRIX
+        invoke  AppendMenuW,dword [hThemeMenu],MF_STRING,ID_THEME_MATRIX,eax
+        stdcall GetLangString,STR_FORMAT_THEME
+        invoke  AppendMenuW,dword [hFormatMenu],MF_POPUP,dword [hThemeMenu],eax
 
         invoke  CreatePopupMenu
-        mov     [hHelpMenu],eax
-        invoke  AppendMenuW,[hHelpMenu],MF_STRING,ID_HELP_ABOUT,menuHelpAbout
+        mov     dword [hEncodingMenu],eax
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_UTF8,menuEncUtf8
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_UTF8_BOM,menuEncUtf8Bom
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_UTF16_LE,menuEncUtf16Le
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_UTF16_BE,menuEncUtf16Be
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_SEPARATOR,0,0
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_CP1252,menuEncCp1252
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_CP1250,menuEncCp1250
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_CP1251,menuEncCp1251
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_ISO8859_1,menuEncIso
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_CP437,menuEncCp437
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_CP850,menuEncCp850
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_SEPARATOR,0,0
+        stdcall GetLangString,STR_ENC_RELOAD
+        invoke  AppendMenuW,dword [hEncodingMenu],MF_STRING,ID_ENC_RELOAD,eax
 
-        invoke  AppendMenuW,[hMainMenu],MF_POPUP,[hFileMenu],menuTopFile
-        invoke  AppendMenuW,[hMainMenu],MF_POPUP,[hEditMenu],menuTopEdit
-        invoke  AppendMenuW,[hMainMenu],MF_POPUP,[hFormatMenu],menuTopFormat
-        invoke  AppendMenuW,[hMainMenu],MF_POPUP,[hEncodingMenu],menuTopEncoding
-        invoke  AppendMenuW,[hMainMenu],MF_POPUP,[hHelpMenu],menuTopHelp
+        invoke  CreatePopupMenu
+        mov     dword [hLanguageMenu],eax
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_ENGLISH,dword [languageNamePointers+UI_LANG_ENGLISH*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_GERMAN,dword [languageNamePointers+UI_LANG_GERMAN*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_FRENCH,dword [languageNamePointers+UI_LANG_FRENCH*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_PORTUGUESE,dword [languageNamePointers+UI_LANG_PORTUGUESE*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_DANISH,dword [languageNamePointers+UI_LANG_DANISH*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_UKRAINIAN,dword [languageNamePointers+UI_LANG_UKRAINIAN*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_RUSSIAN,dword [languageNamePointers+UI_LANG_RUSSIAN*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_CHINESE,dword [languageNamePointers+UI_LANG_CHINESE*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_KOREAN,dword [languageNamePointers+UI_LANG_KOREAN*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_ARABIC,dword [languageNamePointers+UI_LANG_ARABIC*4]
+        invoke  AppendMenuW,dword [hLanguageMenu],MF_STRING,ID_LANG_TURKISH,dword [languageNamePointers+UI_LANG_TURKISH*4]
 
-        invoke  SetMenu,[hWndMain],[hMainMenu]
-        invoke  DrawMenuBar,[hWndMain]
+        invoke  CreatePopupMenu
+        mov     dword [hHelpMenu],eax
+        stdcall GetLangString,STR_HELP_ABOUT
+        invoke  AppendMenuW,dword [hHelpMenu],MF_STRING,ID_HELP_ABOUT,eax
+
+        stdcall GetLangString,STR_TOP_FILE
+        invoke  AppendMenuW,dword [hMainMenu],MF_POPUP,dword [hFileMenu],eax
+        stdcall GetLangString,STR_TOP_EDIT
+        invoke  AppendMenuW,dword [hMainMenu],MF_POPUP,dword [hEditMenu],eax
+        stdcall GetLangString,STR_TOP_FORMAT
+        invoke  AppendMenuW,dword [hMainMenu],MF_POPUP,dword [hFormatMenu],eax
+        stdcall GetLangString,STR_TOP_ENCODING
+        invoke  AppendMenuW,dword [hMainMenu],MF_POPUP,dword [hEncodingMenu],eax
+        stdcall GetLangString,STR_TOP_LANGUAGE
+        invoke  AppendMenuW,dword [hMainMenu],MF_POPUP,dword [hLanguageMenu],eax
+        stdcall GetLangString,STR_TOP_HELP
+        invoke  AppendMenuW,dword [hMainMenu],MF_POPUP,dword [hHelpMenu],eax
+
+        invoke  SetMenu,dword [hWndMain],dword [hMainMenu]
+        call    UpdateEncodingMenu
+        call    UpdateLanguageMenu
+        call    UpdateThemeMenu
+        cmp     dword [wordWrap],0
+        je      .wrap_off
+        invoke  CheckMenuItem,dword [hFormatMenu],ID_FORMAT_WRAP,MF_BYCOMMAND or MF_CHECKED
+        jmp     .draw
+.wrap_off:
+        invoke  CheckMenuItem,dword [hFormatMenu],ID_FORMAT_WRAP,MF_BYCOMMAND or MF_UNCHECKED
+.draw:
+        invoke  DrawMenuBar,dword [hWndMain]
         ret
 
 CreateAccelerators:
@@ -669,7 +1238,9 @@ ToggleWordWrap:
 ShowFindReplaceDialog:
         cmp     dword [hFindReplace],0
         jne     .show_existing
-        invoke  CreateWindowExW,WS_EX_TOOLWINDOW or WS_EX_CONTROLPARENT_VALUE,findClassName,findDialogTitle,\
+        stdcall GetLangString,STR_FIND_TITLE
+        mov     dword [tmpLangPointer],eax
+        invoke  CreateWindowExW,WS_EX_TOOLWINDOW or WS_EX_CONTROLPARENT_VALUE,findClassName,dword [tmpLangPointer],\
                 WS_OVERLAPPED or WS_CAPTION or WS_SYSMENU,CW_USEDEFAULT,CW_USEDEFAULT,500,245,\
                 [hWndMain],0,[hInstance],0
         test    eax,eax
@@ -686,6 +1257,14 @@ proc FindReplaceProc hwnd,wmsg,wparam,lparam
         push    ebx esi edi
         cmp     dword [wmsg],WM_CREATE
         je      .create
+        cmp     dword [wmsg],WM_ERASEBKGND
+        je      .erase_background
+        cmp     dword [wmsg],WM_CTLCOLOREDIT
+        je      .color_edit
+        cmp     dword [wmsg],WM_CTLCOLORSTATIC
+        je      .color_edit
+        cmp     dword [wmsg],WM_CTLCOLORBTN
+        je      .color_button
         cmp     dword [wmsg],WM_COMMAND
         je      .command
         cmp     dword [wmsg],WM_CLOSE
@@ -695,44 +1274,69 @@ proc FindReplaceProc hwnd,wmsg,wparam,lparam
         invoke  DefWindowProcW,[hwnd],dword [wmsg],[wparam],[lparam]
         jmp     .finish
 
+.erase_background:
+        cmp     dword [hThemeBrush],0
+        je      .default_message
+        invoke  GetClientRect,[hwnd],clientRect
+        invoke  FillRect,[wparam],clientRect,dword [hThemeBrush]
+        mov     eax,1
+        jmp     .finish
+
+.color_edit:
+        invoke  SetTextColor,[wparam],dword [themeTextColor]
+        invoke  SetBkColor,[wparam],dword [themeBackColor]
+        mov     eax,dword [hThemeBrush]
+        jmp     .finish
+
+.color_button:
+        invoke  SetTextColor,[wparam],dword [themeTextColor]
+        invoke  SetBkColor,[wparam],dword [themeBackColor]
+        mov     eax,dword [hThemeBrush]
+        jmp     .finish
+
+.default_message:
+        invoke  DefWindowProcW,[hwnd],dword [wmsg],[wparam],[lparam]
+        jmp     .finish
+
 .create:
         mov     eax,[hwnd]
         mov     dword [hFindReplace],eax
-        invoke  CreateWindowExW,0,staticClass,findLabel,WS_CHILD or WS_VISIBLE,12,16,92,20,[hwnd],0,[hInstance],0
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
+        invoke  CreateWindowExW,0,staticClass,emptyString,WS_CHILD or WS_VISIBLE,12,16,92,20,[hwnd],IDC_FIND_LABEL,[hInstance],0
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
         invoke  CreateWindowExW,WS_EX_CLIENTEDGE,editClass,emptyString,WS_CHILD or WS_VISIBLE or WS_TABSTOP or ES_AUTOHSCROLL,\
                 108,12,360,25,[hwnd],IDC_FIND_TEXT,[hInstance],0
         mov     dword [hFindText],eax
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
 
-        invoke  CreateWindowExW,0,staticClass,replaceLabel,WS_CHILD or WS_VISIBLE,12,53,92,20,[hwnd],0,[hInstance],0
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
+        invoke  CreateWindowExW,0,staticClass,emptyString,WS_CHILD or WS_VISIBLE,12,53,92,20,[hwnd],IDC_REPLACE_LABEL,[hInstance],0
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
         invoke  CreateWindowExW,WS_EX_CLIENTEDGE,editClass,emptyString,WS_CHILD or WS_VISIBLE or WS_TABSTOP or ES_AUTOHSCROLL,\
                 108,49,360,25,[hwnd],IDC_REPLACE_TEXT,[hInstance],0
         mov     dword [hReplaceText],eax
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
 
-        invoke  CreateWindowExW,0,buttonClass,matchCaseLabel,WS_CHILD or WS_VISIBLE or WS_TABSTOP or BS_AUTOCHECKBOX_VALUE,\
+        invoke  CreateWindowExW,0,buttonClass,emptyString,WS_CHILD or WS_VISIBLE or WS_TABSTOP or BS_AUTOCHECKBOX_VALUE,\
                 108,84,135,22,[hwnd],IDC_MATCH_CASE,[hInstance],0
         mov     dword [hMatchCase],eax
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
-        invoke  CreateWindowExW,0,buttonClass,wholeWordLabel,WS_CHILD or WS_VISIBLE or WS_TABSTOP or BS_AUTOCHECKBOX_VALUE,\
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
+        invoke  CreateWindowExW,0,buttonClass,emptyString,WS_CHILD or WS_VISIBLE or WS_TABSTOP or BS_AUTOCHECKBOX_VALUE,\
                 255,84,150,22,[hwnd],IDC_WHOLE_WORD,[hInstance],0
         mov     dword [hWholeWord],eax
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
 
-        invoke  CreateWindowExW,0,buttonClass,findNextLabel,WS_CHILD or WS_VISIBLE or WS_TABSTOP or BS_DEFPUSHBUTTON_VALUE,\
+        invoke  CreateWindowExW,0,buttonClass,emptyString,WS_CHILD or WS_VISIBLE or WS_TABSTOP or BS_DEFPUSHBUTTON_VALUE,\
                 108,119,110,30,[hwnd],ID_FIND_NEXT,[hInstance],0
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
-        invoke  CreateWindowExW,0,buttonClass,replaceButtonLabel,WS_CHILD or WS_VISIBLE or WS_TABSTOP,\
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
+        invoke  CreateWindowExW,0,buttonClass,emptyString,WS_CHILD or WS_VISIBLE or WS_TABSTOP,\
                 228,119,110,30,[hwnd],ID_REPLACE_ONE,[hInstance],0
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
-        invoke  CreateWindowExW,0,buttonClass,replaceAllLabel,WS_CHILD or WS_VISIBLE or WS_TABSTOP,\
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
+        invoke  CreateWindowExW,0,buttonClass,emptyString,WS_CHILD or WS_VISIBLE or WS_TABSTOP,\
                 348,119,120,30,[hwnd],ID_REPLACE_ALL,[hInstance],0
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
-        invoke  CreateWindowExW,0,buttonClass,closeButtonLabel,WS_CHILD or WS_VISIBLE or WS_TABSTOP,\
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
+        invoke  CreateWindowExW,0,buttonClass,emptyString,WS_CHILD or WS_VISIBLE or WS_TABSTOP,\
                 358,160,110,30,[hwnd],ID_FIND_CLOSE,[hInstance],0
-        invoke  SendMessageW,eax,WM_SETFONT,dword [hEditorFont],TRUE
+        invoke  SendMessageW,eax,WM_SETFONT,dword [hUiFont],TRUE
+        call    UpdateFindReplaceLanguage
         call    SeedFindTextFromSelection
         xor     eax,eax
         jmp     .finish
@@ -929,7 +1533,7 @@ FindNextInDocument:
         cmp     dword [searchNeedleLength],0
         jne     .have_needle
         call    ShowFindReplaceDialog
-        invoke  MessageBoxW,dword [hFindReplace],msgEnterSearch,appName,MB_OK or MB_ICONINFORMATION
+        stdcall ShowLangMessage,dword [hFindReplace],STR_MSG_ENTER_SEARCH,MB_OK or MB_ICONINFORMATION
         xor     eax,eax
         ret
 .have_needle:
@@ -982,11 +1586,11 @@ FindNextInDocument:
         ret
 .not_found:
         call    FreeSearchBuffer
-        invoke  MessageBoxW,dword [hFindReplace],msgTextNotFound,appName,MB_OK or MB_ICONINFORMATION
+        stdcall ShowLangMessage,dword [hFindReplace],STR_MSG_NOT_FOUND,MB_OK or MB_ICONINFORMATION
         xor     eax,eax
         ret
 .memory_error:
-        invoke  MessageBoxW,dword [hWndMain],msgMemoryError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_MEMORY,MB_OK or MB_ICONERROR
         xor     eax,eax
         ret
 
@@ -1021,7 +1625,7 @@ ReplaceCurrentAndFind:
         call    ReadSearchOptions
         cmp     dword [searchNeedleLength],0
         jne     .check_selection
-        invoke  MessageBoxW,dword [hFindReplace],msgEnterSearch,appName,MB_OK or MB_ICONINFORMATION
+        stdcall ShowLangMessage,dword [hFindReplace],STR_MSG_ENTER_SEARCH,MB_OK or MB_ICONINFORMATION
         ret
 .check_selection:
         call    SelectionMatchesFind
@@ -1038,7 +1642,7 @@ ReplaceAllInDocument:
         call    ReadSearchOptions
         cmp     dword [searchNeedleLength],0
         jne     .load_text
-        invoke  MessageBoxW,dword [hFindReplace],msgEnterSearch,appName,MB_OK or MB_ICONINFORMATION
+        stdcall ShowLangMessage,dword [hFindReplace],STR_MSG_ENTER_SEARCH,MB_OK or MB_ICONINFORMATION
         ret
 .load_text:
         invoke  GetWindowTextLengthW,dword [hEdit]
@@ -1078,7 +1682,7 @@ ReplaceAllInDocument:
         cmp     dword [replaceMatchCount],0
         jne     .allocate_output
         call    FreeSearchBuffer
-        invoke  MessageBoxW,dword [hFindReplace],msgTextNotFound,appName,MB_OK or MB_ICONINFORMATION
+        stdcall ShowLangMessage,dword [hFindReplace],STR_MSG_NOT_FOUND,MB_OK or MB_ICONINFORMATION
         ret
 .allocate_output:
         mov     eax,dword [searchReplacementLength]
@@ -1148,13 +1752,15 @@ ReplaceAllInDocument:
         invoke  SendMessageW,dword [hEdit],EM_SETSEL,0,0
         call    UpdateTitle
         call    UpdateStatusLine
-        cinvoke wsprintfW,replaceAllMessage,replaceAllFormat,dword [replaceMatchCount]
+        stdcall GetLangString,STR_REPLACE_ALL_FORMAT
+        mov     dword [tmpLangPointer],eax
+        cinvoke wsprintfW,replaceAllMessage,dword [tmpLangPointer],dword [replaceMatchCount]
         invoke  MessageBoxW,dword [hFindReplace],replaceAllMessage,appName,MB_OK or MB_ICONINFORMATION
         call    FreeReplaceBuffers
         ret
 .memory_error:
         call    FreeReplaceBuffers
-        invoke  MessageBoxW,dword [hWndMain],msgMemoryError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_MEMORY,MB_OK or MB_ICONERROR
         ret
 
 FreeSearchBuffer:
@@ -1363,10 +1969,10 @@ PrintDocument:
         call    CleanupPrintResources
         ret
 .memory_error:
-        invoke  MessageBoxW,dword [hWndMain],msgMemoryError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_MEMORY,MB_OK or MB_ICONERROR
         jmp     .abort_cleanup
 .print_error:
-        invoke  MessageBoxW,dword [hWndMain],msgPrintError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_PRINT,MB_OK or MB_ICONERROR
 .abort_cleanup:
         cmp     dword [printDocStarted],0
         je      .cleanup_silent
@@ -1482,6 +2088,7 @@ SaveDocumentAs:
         invoke  GetSaveFileNameW,openFileName
         test    eax,eax
         jz      .cancel
+        call    EnsureSaveExtension
         stdcall SaveFile,dialogPath
         ret
 .cancel:
@@ -1504,13 +2111,50 @@ ReloadCurrentDocument:
 .done:
         ret
 
+
+EnsureSaveExtension:
+        mov     esi,dialogPath
+        xor     edi,edi
+.scan:
+        mov     ax,word [esi]
+        test    ax,ax
+        jz      .scan_done
+        cmp     ax,'\'
+        je      .separator
+        cmp     ax,'/'
+        je      .separator
+        cmp     ax,'.'
+        jne     .next
+        mov     edi,esi
+        jmp     .next
+.separator:
+        xor     edi,edi
+.next:
+        add     esi,2
+        jmp     .scan
+.scan_done:
+        test    edi,edi
+        jnz     .done
+        mov     eax,dword [openFileName.nFilterIndex]
+        cmp     eax,2
+        je      .markdown
+        cmp     eax,4
+        je      .done
+        invoke  lstrcatW,dialogPath,extensionTxt
+        ret
+.markdown:
+        invoke  lstrcatW,dialogPath,extensionMd
+.done:
+        ret
+
 PrepareOpenFileName:
         mov     dword [openFileName.lStructSize],sizeof.OPENFILENAME
         mov     eax,[hWndMain]
         mov     [openFileName.hwndOwner],eax
         mov     eax,[hInstance]
         mov     [openFileName.hInstance],eax
-        mov     dword [openFileName.lpstrFilter],fileFilter
+        stdcall GetLangString,STR_FILE_FILTER
+        mov     dword [openFileName.lpstrFilter],eax
         mov     dword [openFileName.lpstrCustomFilter],0
         mov     dword [openFileName.nMaxCustFilter],0
         mov     dword [openFileName.nFilterIndex],1
@@ -1522,7 +2166,7 @@ PrepareOpenFileName:
         mov     dword [openFileName.lpstrTitle],0
         mov     word [openFileName.nFileOffset],0
         mov     word [openFileName.nFileExtension],0
-        mov     dword [openFileName.lpstrDefExt],defaultExtension
+        mov     dword [openFileName.lpstrDefExt],0
         mov     dword [openFileName.lCustData],0
         mov     dword [openFileName.lpfnHook],0
         mov     dword [openFileName.lpTemplateName],0
@@ -1534,7 +2178,7 @@ proc ConfirmDiscardChanges
         mov     eax,1
         ret
 .ask:
-        invoke  MessageBoxW,[hWndMain],msgSaveChanges,appName,MB_YESNOCANCEL or MB_ICONQUESTION
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_SAVE,MB_YESNOCANCEL or MB_ICONQUESTION
         cmp     eax,IDYES
         je      .save
         cmp     eax,IDNO
@@ -1743,19 +2387,19 @@ proc LoadFile,path
         ret
 
 .too_large:
-        invoke  MessageBoxW,[hWndMain],msgTooLarge,appName,MB_OK or MB_ICONWARNING
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_TOO_LARGE,MB_OK or MB_ICONWARNING
         jmp     .failure_cleanup
 .open_error:
-        invoke  MessageBoxW,[hWndMain],msgOpenError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_OPEN,MB_OK or MB_ICONERROR
         jmp     .failure_cleanup
 .read_error:
-        invoke  MessageBoxW,[hWndMain],msgReadError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_READ,MB_OK or MB_ICONERROR
         jmp     .failure_cleanup
 .memory_error:
-        invoke  MessageBoxW,[hWndMain],msgMemoryError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_MEMORY,MB_OK or MB_ICONERROR
         jmp     .failure_cleanup
 .conversion_error:
-        invoke  MessageBoxW,[hWndMain],msgConversionError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_CONVERSION,MB_OK or MB_ICONERROR
 .failure_cleanup:
         call    FreeLoadBuffers
         xor     eax,eax
@@ -1923,7 +2567,7 @@ proc SaveFile,path
 .legacy_warning:
         cmp     dword [tmpUsedDefault],0
         je      .write_output
-        invoke  MessageBoxW,[hWndMain],msgLossyEncoding,appName,MB_YESNO or MB_ICONWARNING or MB_DEFBUTTON2
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_LOSSY,MB_YESNO or MB_ICONWARNING or MB_DEFBUTTON2
         cmp     eax,IDYES
         jne     .cancel
 
@@ -1959,13 +2603,13 @@ proc SaveFile,path
         ret
 
 .write_error:
-        invoke  MessageBoxW,[hWndMain],msgWriteError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_WRITE,MB_OK or MB_ICONERROR
         jmp     .failure
 .memory_error:
-        invoke  MessageBoxW,[hWndMain],msgMemoryError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_MEMORY,MB_OK or MB_ICONERROR
         jmp     .failure
 .conversion_error:
-        invoke  MessageBoxW,[hWndMain],msgConversionError,appName,MB_OK or MB_ICONERROR
+        stdcall ShowLangMessage,dword [hWndMain],STR_MSG_CONVERSION,MB_OK or MB_ICONERROR
         jmp     .failure
 .cancel:
 .failure:
@@ -2151,7 +2795,8 @@ GetEncodingName:
 UpdateTitle:
         cmp     word [currentPath],0
         jne     .has_path
-        invoke  lstrcpyW,titleBuffer,untitledName
+        stdcall GetLangString,STR_UNTITLED
+        invoke  lstrcpyW,titleBuffer,eax
         jmp     .base_ready
 .has_path:
         invoke  lstrcpyW,titleBuffer,currentPath
@@ -2192,6 +2837,12 @@ hWndMain           dd 0
 hEdit              dd 0
 hStatus            dd 0
 hEditorFont        dd 0
+hUiFont            dd 0
+hOldEditProc       dd 0
+ownsEditorFont     dd 0
+oldFontOwned       dd 0
+hThemeBrush        dd 0
+hThemeStatusBrush  dd 0
 hFindReplace       dd 0
 hFindText          dd 0
 hReplaceText       dd 0
@@ -2201,7 +2852,9 @@ hMainMenu          dd 0
 hFileMenu          dd 0
 hEditMenu          dd 0
 hFormatMenu        dd 0
+hThemeMenu         dd 0
 hEncodingMenu      dd 0
+hLanguageMenu      dd 0
 hHelpMenu          dd 0
 hAccel             dd 0
 
@@ -2210,12 +2863,19 @@ contentModified    dd 0
 encodingDirty      dd 0
 loadingText        dd 0
 wordWrap           dd 1
+currentLanguage    dd UI_LANG_ENGLISH
+currentTheme       dd THEME_LIGHT
 currentEncoding    dd ENC_UTF8
 savedEncoding      dd ENC_UTF8
 editorStyle        dd 0
 selectionStart     dd 0
 selectionEnd       dd 0
 layoutEditorHeight dd 0
+
+themeBackColor       dd 00FFFFFFh
+themeTextColor       dd 00241C18h
+themeStatusBackColor dd 00F8F4F1h
+themeStatusTextColor dd 00483A32h
 
 statusCharCount    dd 0
 statusTokenCount   dd 0
@@ -2273,6 +2933,7 @@ tmpUsedDefault     dd 0
 tmpSearchBuffer    dd 0
 tmpReplaceOutput   dd 0
 tmpPrintBuffer     dd 0
+tmpLangPointer     dd 0
 
 wc WNDCLASS CS_HREDRAW or CS_VREDRAW,WindowProc,0,0,0,0,0,COLOR_WINDOW+1,0,className
 findWc WNDCLASS CS_HREDRAW or CS_VREDRAW,FindReplaceProc,0,0,0,0,0,COLOR_BTNFACE+1,0,findClassName
@@ -2283,6 +2944,8 @@ printCalcRect RECT
 printDrawRect RECT
 openFileName OPENFILENAME
 printDialog PRINTDLG
+fontDialog CHOOSEFONT
+editorLogFont LOGFONT
 
 printDocInfo:
  .cbSize      dd 0
@@ -2345,62 +3008,22 @@ buttonClass        du 'BUTTON',0
 findClassName      du 'FasmNotepadFindReplaceWindow',0
 appName            du 'FASM Notepad',0
 initialTitle       du 'FASM Notepad',0
-untitledName       du 'Unbenannt',0
 modifiedSuffix     du ' *',0
 titleSeparator     du ' - FASM Notepad [',0
 titleEnd           du ']',0
 emptyString        du 0
 
-menuTopFile        du '&Datei',0
-menuTopEdit        du '&Bearbeiten',0
-menuTopFormat      du 'F&ormat',0
-menuTopEncoding    du '&Zeichensatz',0
-menuTopHelp        du '&Hilfe',0
-
-menuFileNew        du '&Neu',9,'Ctrl+N',0
-menuFileOpen       du '&Oeffnen...',9,'Ctrl+O',0
-menuFileSave       du '&Speichern',9,'Ctrl+S',0
-menuFileSaveAs     du 'Speichern &unter...',9,'Ctrl+Shift+S',0
-menuFilePrint      du '&Drucken...',9,'Ctrl+P',0
-menuFileExit       du '&Beenden',0
-
-menuEditUndo       du '&Rueckgaengig',9,'Ctrl+Z',0
-menuEditFind       du '&Suchen...',9,'Ctrl+F',0
-menuEditFindNext   du 'Weitersuchen',9,'F3',0
-menuEditReplace    du '&Ersetzen...',9,'Ctrl+H',0
-menuEditCut        du 'A&usschneiden',9,'Ctrl+X',0
-menuEditCopy       du '&Kopieren',9,'Ctrl+C',0
-menuEditPaste      du '&Einfuegen',9,'Ctrl+V',0
-menuEditDelete     du '&Loeschen',9,'Entf',0
-menuEditSelectAll  du '&Alles markieren',9,'Ctrl+A',0
-
-menuFormatWrap     du '&Zeilenumbruch',0
-
-menuEncUtf8        du 'UTF-8 (ohne BOM)',0
-menuEncUtf8Bom     du 'UTF-8 mit BOM',0
-menuEncUtf16Le     du 'UTF-16 Little Endian mit BOM',0
-menuEncUtf16Be     du 'UTF-16 Big Endian mit BOM',0
-menuEncCp1252      du 'Windows-1252 (Westeuropa)',0
-menuEncCp1250      du 'Windows-1250 (Mitteleuropa)',0
-menuEncCp1251      du 'Windows-1251 (Kyrillisch)',0
-menuEncIso         du 'ISO-8859-1 (Latin-1)',0
+menuEncUtf8        du 'UTF-8',0
+menuEncUtf8Bom     du 'UTF-8 BOM',0
+menuEncUtf16Le     du 'UTF-16 LE BOM',0
+menuEncUtf16Be     du 'UTF-16 BE BOM',0
+menuEncCp1252      du 'Windows-1252',0
+menuEncCp1250      du 'Windows-1250',0
+menuEncCp1251      du 'Windows-1251',0
+menuEncIso         du 'ISO-8859-1',0
 menuEncCp437       du 'DOS/OEM 437',0
 menuEncCp850       du 'DOS/OEM 850',0
-menuEncReload      du 'Datei mit Auswahl &neu laden',0
 
-menuHelpAbout      du '&Info...',9,'F1',0
-
-findDialogTitle    du 'Suchen und Ersetzen',0
-findLabel          du 'Suchen nach:',0
-replaceLabel       du 'Ersetzen durch:',0
-matchCaseLabel     du 'Gross/Klein beachten',0
-wholeWordLabel     du 'Nur ganze Woerter',0
-findNextLabel      du 'Weitersuchen',0
-replaceButtonLabel du 'Ersetzen',0
-replaceAllLabel    du 'Alle ersetzen',0
-closeButtonLabel   du 'Schliessen',0
-statusFormat       du 'Zeile: %u    Zeichen: %u    Token ca.: %u',0
-replaceAllFormat   du '%u Vorkommen wurden ersetzt.',0
 printJobName       du 'FASM Notepad document',0
 printerFontName    du 'Courier New',0
 
@@ -2415,31 +3038,10 @@ encNameIso         du 'ISO-8859-1',0
 encNameCp437       du 'OEM 437',0
 encNameCp850       du 'OEM 850',0
 
-defaultExtension   du 'txt',0
-fileFilter         du 'Textdateien (*.txt)',0,'*.txt',0,'Alle Dateien (*.*)',0,'*.*',0,0
+extensionTxt       du '.txt',0
+extensionMd        du '.md',0
 
-msgFatalStart      du 'Die Anwendung konnte nicht gestartet werden.',0
-msgSaveChanges     du 'Die Datei wurde geaendert. Aenderungen speichern?',0
-msgOpenError       du 'Die Datei konnte nicht geoeffnet werden.',0
-msgReadError       du 'Die Datei konnte nicht vollstaendig gelesen werden.',0
-msgWriteError      du 'Die Datei konnte nicht vollstaendig geschrieben werden.',0
-msgMemoryError     du 'Nicht genug Arbeitsspeicher fuer diesen Vorgang.',0
-msgConversionError du 'Die Zeichensatz-Konvertierung ist fehlgeschlagen.',0
-msgTooLarge        du 'Die Datei ist fuer diesen einfachen Editor zu gross (Maximum: 128 MiB).',0
-msgLossyEncoding   du 'Der gewaehlte Zeichensatz kann nicht alle Zeichen darstellen. Nicht darstellbare Zeichen werden ersetzt. Trotzdem speichern?',0
-msgEnterSearch     du 'Bitte einen Suchtext eingeben.',0
-msgTextNotFound    du 'Der Suchtext wurde nicht gefunden.',0
-msgPrintError      du 'Das Dokument konnte nicht gedruckt werden.',0
-
-aboutText          du 'FASM Notepad 1.2.2',13,10,\
-                       'Ein kleiner nativer Win32-Texteditor in Flat Assembler.',13,10,13,10,\
-                       'Funktionen:',13,10,\
-                       '- Neu, Oeffnen, Speichern, Drucken und Speichern unter',13,10,\
-                       '- Drag-and-drop von Dateien',13,10,\
-                       '- Suchen und Ersetzen',13,10,\
-                       '- Undo, Cut, Copy, Paste und Alles markieren',13,10,\
-                       '- Dynamische Statuszeile mit Zeile, Zeichen und Token-Schaetzung',13,10,\
-                       '- Zeilenumbruch und mehrere Zeichensaetze',0
+include 'src\localization.inc'
 
 ; ----- imports ----------------------------------------------------------------
 
@@ -2475,6 +3077,8 @@ import user32,\
        RegisterClassW,'RegisterClassW',\
        CreateWindowExW,'CreateWindowExW',\
        DefWindowProcW,'DefWindowProcW',\
+       SetWindowLongW,'SetWindowLongW',\
+       CallWindowProcW,'CallWindowProcW',\
        ShowWindow,'ShowWindow',\
        UpdateWindow,'UpdateWindow',\
        GetMessageW,'GetMessageW',\
@@ -2488,11 +3092,15 @@ import user32,\
        AppendMenuW,'AppendMenuW',\
        SetMenu,'SetMenu',\
        DrawMenuBar,'DrawMenuBar',\
+       DestroyMenu,'DestroyMenu',\
        CheckMenuRadioItem,'CheckMenuRadioItem',\
        CheckMenuItem,'CheckMenuItem',\
        MessageBoxW,'MessageBoxW',\
        MoveWindow,'MoveWindow',\
        GetClientRect,'GetClientRect',\
+       InvalidateRect,'InvalidateRect',\
+       FillRect,'FillRect',\
+       GetDlgItem,'GetDlgItem',\
        SetFocus,'SetFocus',\
        SendMessageW,'SendMessageW',\
        DestroyWindow,'DestroyWindow',\
@@ -2517,6 +3125,11 @@ import gdi32,\
        GetStockObject,'GetStockObject',\
        GetDeviceCaps,'GetDeviceCaps',\
        CreateFontW,'CreateFontW',\
+       CreateFontIndirectW,'CreateFontIndirectW',\
+       CreateSolidBrush,'CreateSolidBrush',\
+       GetObjectW,'GetObjectW',\
+       SetTextColor,'SetTextColor',\
+       SetBkColor,'SetBkColor',\
        SelectObject,'SelectObject',\
        DeleteObject,'DeleteObject',\
        DeleteDC,'DeleteDC',\
@@ -2529,10 +3142,40 @@ import gdi32,\
 import comdlg32,\
        GetOpenFileNameW,'GetOpenFileNameW',\
        GetSaveFileNameW,'GetSaveFileNameW',\
-       PrintDlgW,'PrintDlgW'
+       PrintDlgW,'PrintDlgW',\
+       ChooseFontW,'ChooseFontW'
 
 import shell32,\
        DragAcceptFiles,'DragAcceptFiles',\
        DragQueryFileW,'DragQueryFileW',\
        DragFinish,'DragFinish',\
        CommandLineToArgvW,'CommandLineToArgvW'
+
+; ----- resources --------------------------------------------------------------
+
+section '.rsrc' resource data readable
+
+directory RT_ICON,icons,\
+          RT_GROUP_ICON,group_icons,\
+          RT_VERSION,versions
+
+resource icons,\
+         1,LANG_NEUTRAL,icon_data
+
+resource group_icons,\
+         IDR_ICON,LANG_NEUTRAL,main_icon
+
+resource versions,\
+         1,LANG_NEUTRAL,version
+
+icon main_icon,icon_data,'src\assets\FasmNotepad.ico'
+
+versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
+            'FileDescription','FASM Notepad',\
+            'FileVersion','1.3.1',\
+            'ProductName','FASM Notepad',\
+            'ProductVersion','1.3.1',\
+            'OriginalFilename','FasmNotepad.exe',\
+            'LegalCopyright','Copyright (c) 2026 zeittresor - MIT License',\
+            'Comments','Source: github.com/zeittresor/fasm_notepad'
+
