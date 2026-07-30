@@ -78,7 +78,7 @@ src\FasmNotepad.asm       Main application source
 src\localization.inc      UTF-16 interface strings
 src\assets\               Application icon resources
 changelog\                Release history and technical notes
-build.cmd                  Compiler discovery and build script
+build.cmd                 Compiler discovery and build script
 ```
 
 ## License and source
