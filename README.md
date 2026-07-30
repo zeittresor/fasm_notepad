@@ -2,6 +2,8 @@
 
 FASM Notepad is a small native Windows text editor written in Flat Assembler with the Win32 API. It is intended as a compact, readable Notepad-style application and as a practical FASM GUI example.
 
+<img width="599" height="407" alt="2026-07-30 02_20_00-zeittresor_fasm_notepad_ Fast Simple Notepad for Windows written in Flat Assembl" src="https://github.com/user-attachments/assets/86f7e4d8-564d-4d04-9bff-d73b499aeec4" />
+
 ## Main features
 
 - Create, open, edit, save, and print plain-text documents.
