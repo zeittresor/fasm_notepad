@@ -1,74 +1,45 @@
 # FASM Notepad
 
-FASM Notepad is a small native Notepad-style text editor for Windows, written entirely in **Flat Assembler (FASM)** and the classic Win32 API.
+FASM Notepad is a small native Windows text editor written in Flat Assembler with the Win32 API. It is intended as a compact, readable Notepad-style application and as a practical FASM GUI example.
 
-<img width="599" height="407" alt="2026-07-30 02_20_00-zeittresor_fasm_notepad_ Fast Simple Notepad for Windows written in Flat Assembl" src="https://github.com/user-attachments/assets/265a4ba5-f31a-422d-b907-24ecf99fa52b" />
+## Main features
 
-## Features
+- Create, open, edit, save, and print plain-text documents.
+- Open and save `.txt` and `.md` files, with an additional all-files filter.
+- Drag files from Windows Explorer into the editor.
+- Find, find next, replace, and replace all.
+- Undo, cut, copy, paste, delete, and select all.
+- Configurable word wrapping and a standard Windows font selection dialog.
+- Change editor text size with `Ctrl` + mouse wheel.
+- Status line with the current line, total character count, and an approximate token count.
+- Selectable encodings including UTF-8, UTF-16, Windows code pages, ISO-8859-1, and DOS/OEM code pages.
+- Light, Dark, Aurora, and Matrix interface themes.
+- Resizable and maximizable native Windows window.
 
-- New, Open, Save, Save As, Print, and Exit
-- Confirmation before discarding unsaved changes
-- File drag and drop from Windows Explorer
-- Undo, Cut, Copy, Paste, Delete, and Select All
-- Find, Find Next, Replace, and Replace All
-- Optional case-sensitive and whole-word search
-- Resizable and maximizable main window
-- Toggleable word wrap
-- Dynamic status line showing:
-  - current selected/caret line
-  - total character count
-  - approximate token count
-- Command-line argument for opening a file at startup
-- Native Unicode GUI with UTF-16 text internally
-- Encoding menu with:
-  - UTF-8 without BOM
-  - UTF-8 with BOM
-  - UTF-16 LE with BOM
-  - UTF-16 BE with BOM
-  - Windows-1252
-  - Windows-1250
-  - Windows-1251
-  - ISO-8859-1
-  - DOS/OEM 437
-  - DOS/OEM 850
-- BOM detection when opening files
-- UTF-8 validation with a Windows-1252 fallback for invalid UTF-8 files
-- Warning before saving characters that cannot be represented by a selected legacy code page
+Markdown files are edited as plain text; the application does not render Markdown formatting.
 
-## Status line
+## Interface languages
 
-The status line is updated while typing and when the caret or selection moves.
+English is the default interface language. The application also includes:
 
-The token value is intentionally an estimate. It uses the simple approximation of roughly one token per four UTF-16 characters. Actual tokenization depends on the language and tokenizer used by a specific language model.
+- German
+- French
+- Portuguese
+- Danish
+- Ukrainian
+- Russian
+- Simplified Chinese
+- Korean
+- Arabic
+- Turkish
 
-## Find and replace
-
-Open the Find/Replace window through the **Edit** menu or by using:
-
-- `Ctrl+F` — Find
-- `Ctrl+H` — Replace
-- `F3` — Find Next
-
-The search wraps to the beginning of the document after reaching the end. Search can optionally match case and restrict results to whole words.
-
-## Printing
-
-Use **File > Print** or `Ctrl+P` to open the standard Windows printer dialog.
-
-Printing uses a fixed-width font, wraps long logical lines to the printable page width, and creates additional pages automatically when required.
-
-## Encoding behavior
-
-The selection under **Encoding** determines:
-
-1. how a file without a BOM is interpreted when it is opened or reloaded;
-2. which encoding is used when the current document is saved.
-
-A UTF-8, UTF-16 LE, or UTF-16 BE BOM takes priority when opening a file. Use **Reload file with selected encoding** to reinterpret an already opened file with the selected code page.
+The language can be changed at runtime from the **Language** menu.
 
 ## Building
 
-### Recommended method
+The project targets 32-bit Windows and also runs on 64-bit Windows through WoW64.
+
+### Normal build
 
 Run:
 
@@ -76,100 +47,40 @@ Run:
 build.cmd
 ```
 
-The build script searches for a real `fasm.exe` in this order:
+The script looks for FASM in the project, through `FASM_HOME`, and in `PATH`. If FASM is not available, it can download the official Windows compiler package into `tools\fasm` without changing the system-wide PowerShell execution policy.
 
-1. common locations below `tools\`;
-2. recursively below `tools\`;
-3. through the `FASM_HOME` environment variable;
-4. in the system `PATH`;
-5. if FASM is still missing, the bootstrap downloads the official Windows package into `tools\fasm`.
-
-The compiled application is written to:
+The resulting executable is written to:
 
 ```text
 bin\FasmNotepad.exe
 ```
 
-To build and immediately launch the program:
+### Build and run
 
 ```bat
 build_and_run.cmd
 ```
 
-### Downloading FASM manually through the included wrapper
-
-Run:
+### Clean generated output
 
 ```bat
-get_fasm.cmd
+clean.cmd
 ```
 
-Use the CMD wrapper rather than launching `get_fasm.ps1` directly. The wrapper starts a temporary PowerShell process with `ExecutionPolicy Bypass`; it does **not** change the persistent execution policy for the current user or the computer.
-
-After the compiler has been downloaded, run `build.cmd` again. Normally `build.cmd` performs this bootstrap automatically.
-
-### Manual FASM installation
-
-Alternatively, download the official Windows FASM package and extract it so that the project contains a layout similar to:
-
-```text
-tools\fasm\fasm.exe
-tools\fasm\INCLUDE\win32wx.inc
-```
-
-A different nested folder layout is also accepted as long as both files exist somewhere below `tools\`.
-
-### Manual build command
-
-```bat
-set INCLUDE=C:\Path\To\FASM\INCLUDE
-C:\Path\To\FASM\fasm.exe src\FasmNotepad.asm bin\FasmNotepad.exe
-```
-
-The complete FASM `INCLUDE` directory is required, especially `win32wx.inc`.
+The build requires the standard FASM Windows include files, especially `win32wx.inc`.
 
 ## Project structure
 
 ```text
-FasmNotepad\
-├─ src\FasmNotepad.asm
-├─ bin\
-├─ tools\
-├─ build.cmd
-├─ build_and_run.cmd
-├─ clean.cmd
-├─ get_fasm.cmd
-├─ get_fasm.ps1
-├─ LICENSE.txt
-└─ README.md
+src\FasmNotepad.asm       Main application source
+src\localization.inc      UTF-16 interface strings
+src\assets\               Application icon resources
+changelog\                Release history and technical notes
+build.cmd                  Compiler discovery and build script
 ```
 
-## Keyboard shortcuts
+## License and source
 
-| Action | Shortcut |
-|---|---|
-| New | Ctrl+N |
-| Open | Ctrl+O |
-| Save | Ctrl+S |
-| Save As | Ctrl+Shift+S |
-| Print | Ctrl+P |
-| Find | Ctrl+F |
-| Replace | Ctrl+H |
-| Find Next | F3 |
-| Undo | Ctrl+Z |
-| Cut | Ctrl+X |
-| Copy | Ctrl+C |
-| Paste | Ctrl+V |
-| Select All | Ctrl+A |
-| Delete selection | Delete |
-| About | F1 |
+FASM Notepad is distributed under the MIT License. See `LICENSE.txt`.
 
-## Technical notes
-
-- Output format: native 32-bit PE GUI application (`format PE GUI 5.1`).
-- Runs on 32-bit Windows and through WoW64 on 64-bit Windows.
-- No .NET runtime or external application framework is required.
-- The editor uses the native multiline Windows `EDIT` control.
-- The main window uses `WS_OVERLAPPEDWINDOW`, so resizing and maximizing are supported by Windows normally.
-- File size is limited to 128 MiB as a safety limit for this simple single-buffer editor.
-- The compiler is not bundled in the project archive; the bootstrap can download it when required.
+Source repository: https://github.com/zeittresor/fasm_notepad

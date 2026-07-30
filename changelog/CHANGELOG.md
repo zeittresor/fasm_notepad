@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.2 — 2026-07-30
+
+- Fixed theme changes so the editor and status line repaint immediately without requiring a language switch.
+- Added themed native-menu backgrounds and reapplied them after rebuilding the menu for a language change.
+- Added optional DWM caption, border, and title-text colours where the Windows version supports those attributes.
+- Added explicit redraw handling for the main window, editor, status line, and find/replace dialog.
+- Expanded the README with a concise feature overview, supported languages, file handling, and build instructions.
+- Updated the About-dialog version and executable metadata to 1.3.2.
+
 ## 1.3.1 — 2026-07-30
 
 - Fixed FASM-compatible hexadecimal notation throughout the UTF-16 localization table.

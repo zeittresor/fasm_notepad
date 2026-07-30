@@ -12,7 +12,7 @@ include 'win32wx.inc'
 
 ; ----- application constants --------------------------------------------------
 
-APP_VERSION        equ 131
+APP_VERSION        equ 132
 MAX_PATH_CHARS     equ 260
 TITLE_CHARS        equ 640
 MAX_FILE_BYTES     equ 134217728       ; 128 MiB safety limit for this simple editor
@@ -226,6 +226,23 @@ WM_MOUSEWHEEL_VALUE        equ 020Ah
 MIN_FONT_HEIGHT            equ -72
 MAX_FONT_HEIGHT            equ -8
 FONT_ZOOM_STEP             equ 2
+
+MIM_BACKGROUND_VALUE       equ 00000002h
+MIM_APPLYTOSUBMENUS_VALUE  equ 80000000h
+MENUINFO_SIZE_VALUE        equ 28
+
+RDW_INVALIDATE_VALUE       equ 0001h
+RDW_ERASE_VALUE            equ 0004h
+RDW_ALLCHILDREN_VALUE      equ 0080h
+RDW_UPDATENOW_VALUE        equ 0100h
+RDW_FRAME_VALUE            equ 0400h
+THEME_REDRAW_FLAGS         equ RDW_INVALIDATE_VALUE or RDW_ERASE_VALUE or RDW_ALLCHILDREN_VALUE or RDW_UPDATENOW_VALUE or RDW_FRAME_VALUE
+
+DWMWA_USE_IMMERSIVE_DARK_MODE_OLD equ 19
+DWMWA_USE_IMMERSIVE_DARK_MODE     equ 20
+DWMWA_BORDER_COLOR                equ 34
+DWMWA_CAPTION_COLOR               equ 35
+DWMWA_TEXT_COLOR                  equ 36
 
 ; ----- program entry ----------------------------------------------------------
 
@@ -645,6 +662,12 @@ proc WindowProc hwnd,wmsg,wparam,lparam
         invoke  KillTimer,[hwnd],STATUS_TIMER_ID
         invoke  DragAcceptFiles,[hwnd],FALSE
         call    CleanupTheme
+        cmp     dword [hDwmApi],0
+        je      .dwm_clean
+        invoke  FreeLibrary,dword [hDwmApi]
+        mov     dword [hDwmApi],0
+        mov     dword [pDwmSetWindowAttribute],0
+.dwm_clean:
         cmp     dword [ownsEditorFont],0
         je      .font_clean
         cmp     dword [hEditorFont],0
@@ -898,9 +921,140 @@ CleanupTheme:
         mov     dword [hThemeBrush],0
 .status:
         cmp     dword [hThemeStatusBrush],0
-        je      .done
+        je      .menu
         invoke  DeleteObject,dword [hThemeStatusBrush]
         mov     dword [hThemeStatusBrush],0
+.menu:
+        cmp     dword [hThemeMenuBrush],0
+        je      .done
+        invoke  DeleteObject,dword [hThemeMenuBrush]
+        mov     dword [hThemeMenuBrush],0
+.done:
+        ret
+
+EnsureDwmApi:
+        cmp     dword [dwmApiChecked],0
+        jne     .done
+        mov     dword [dwmApiChecked],1
+        invoke  LoadLibraryW,dwmApiLibraryName
+        mov     dword [hDwmApi],eax
+        test    eax,eax
+        jz      .done
+        invoke  GetProcAddress,eax,dwmSetWindowAttributeName
+        mov     dword [pDwmSetWindowAttribute],eax
+.done:
+        ret
+
+proc ApplyDwmThemeToWindow hwnd
+        cmp     dword [hwnd],0
+        je      .done
+        call    EnsureDwmApi
+        cmp     dword [pDwmSetWindowAttribute],0
+        je      .done
+
+        mov     dword [dwmDarkModeValue],0
+        cmp     dword [currentTheme],THEME_LIGHT
+        je      .dark_ready
+        mov     dword [dwmDarkModeValue],1
+.dark_ready:
+        mov     eax,dword [pDwmSetWindowAttribute]
+        push    4
+        push    dwmDarkModeValue
+        push    DWMWA_USE_IMMERSIVE_DARK_MODE
+        push    dword [hwnd]
+        call    eax
+
+        mov     eax,dword [pDwmSetWindowAttribute]
+        push    4
+        push    dwmDarkModeValue
+        push    DWMWA_USE_IMMERSIVE_DARK_MODE_OLD
+        push    dword [hwnd]
+        call    eax
+
+        mov     eax,dword [pDwmSetWindowAttribute]
+        push    4
+        push    themeBorderColor
+        push    DWMWA_BORDER_COLOR
+        push    dword [hwnd]
+        call    eax
+
+        mov     eax,dword [pDwmSetWindowAttribute]
+        push    4
+        push    themeCaptionColor
+        push    DWMWA_CAPTION_COLOR
+        push    dword [hwnd]
+        call    eax
+
+        mov     eax,dword [pDwmSetWindowAttribute]
+        push    4
+        push    themeCaptionTextColor
+        push    DWMWA_TEXT_COLOR
+        push    dword [hwnd]
+        call    eax
+.done:
+        ret
+endp
+
+ApplyMenuTheme:
+        cmp     dword [hThemeMenuBrush],0
+        je      .done
+        cmp     dword [hMainMenu],0
+        je      .done
+        mov     dword [menuInfo.cbSize],MENUINFO_SIZE_VALUE
+        mov     dword [menuInfo.fMask],MIM_BACKGROUND_VALUE or MIM_APPLYTOSUBMENUS_VALUE
+        mov     eax,dword [hThemeMenuBrush]
+        mov     dword [menuInfo.hbrBack],eax
+        invoke  SetMenuInfo,dword [hMainMenu],menuInfo
+        cmp     dword [hFileMenu],0
+        je      .edit
+        invoke  SetMenuInfo,dword [hFileMenu],menuInfo
+.edit:
+        cmp     dword [hEditMenu],0
+        je      .format
+        invoke  SetMenuInfo,dword [hEditMenu],menuInfo
+.format:
+        cmp     dword [hFormatMenu],0
+        je      .theme
+        invoke  SetMenuInfo,dword [hFormatMenu],menuInfo
+.theme:
+        cmp     dword [hThemeMenu],0
+        je      .encoding
+        invoke  SetMenuInfo,dword [hThemeMenu],menuInfo
+.encoding:
+        cmp     dword [hEncodingMenu],0
+        je      .language
+        invoke  SetMenuInfo,dword [hEncodingMenu],menuInfo
+.language:
+        cmp     dword [hLanguageMenu],0
+        je      .help
+        invoke  SetMenuInfo,dword [hLanguageMenu],menuInfo
+.help:
+        cmp     dword [hHelpMenu],0
+        je      .draw
+        invoke  SetMenuInfo,dword [hHelpMenu],menuInfo
+.draw:
+        invoke  DrawMenuBar,dword [hWndMain]
+.done:
+        ret
+
+RedrawThemeWindows:
+        cmp     dword [hEdit],0
+        je      .status
+        invoke  InvalidateRect,dword [hEdit],0,TRUE
+        invoke  UpdateWindow,dword [hEdit]
+.status:
+        cmp     dword [hStatus],0
+        je      .main
+        invoke  InvalidateRect,dword [hStatus],0,TRUE
+        invoke  UpdateWindow,dword [hStatus]
+.main:
+        cmp     dword [hWndMain],0
+        je      .find
+        invoke  RedrawWindow,dword [hWndMain],0,0,THEME_REDRAW_FLAGS
+.find:
+        cmp     dword [hFindReplace],0
+        je      .done
+        invoke  RedrawWindow,dword [hFindReplace],0,0,THEME_REDRAW_FLAGS
 .done:
         ret
 
@@ -918,38 +1072,58 @@ ApplyTheme:
         mov     dword [themeTextColor],00241C18h
         mov     dword [themeStatusBackColor],00F8F4F1h
         mov     dword [themeStatusTextColor],00483A32h
+        mov     dword [themeMenuBackColor],00F8F4F1h
+        mov     dword [themeBorderColor],00B8AAA2h
+        mov     dword [themeCaptionColor],00F8F4F1h
+        mov     dword [themeCaptionTextColor],00241C18h
         jmp     .create_brushes
 .dark:
         mov     dword [themeBackColor],0028201Eh
         mov     dword [themeTextColor],00F5EEEBh
         mov     dword [themeStatusBackColor],00352A27h
         mov     dword [themeStatusTextColor],00E1D4CEh
+        ; Native menus use system text colours. A light neutral background
+        ; keeps their labels readable while still distinguishing the theme.
+        mov     dword [themeMenuBackColor],00DDD7D3h
+        mov     dword [themeBorderColor],00504440h
+        mov     dword [themeCaptionColor],00352A27h
+        mov     dword [themeCaptionTextColor],00F5EEEBh
         jmp     .create_brushes
 .aurora:
         mov     dword [themeBackColor],002B1416h
         mov     dword [themeTextColor],00FFF6E2h
         mov     dword [themeStatusBackColor],00441D25h
         mov     dword [themeStatusTextColor],00E2EE7Bh
+        mov     dword [themeMenuBackColor],00E7D8F0h
+        mov     dword [themeBorderColor],00724963h
+        mov     dword [themeCaptionColor],00441D25h
+        mov     dword [themeCaptionTextColor],00FFF6E2h
         jmp     .create_brushes
 .matrix:
         mov     dword [themeBackColor],00081200h
         mov     dword [themeTextColor],0080FF4Ah
         mov     dword [themeStatusBackColor],000D1F00h
         mov     dword [themeStatusTextColor],0093FF62h
+        mov     dword [themeMenuBackColor],00D2F0CCh
+        mov     dword [themeBorderColor],002B6A20h
+        mov     dword [themeCaptionColor],000D1F00h
+        mov     dword [themeCaptionTextColor],0093FF62h
 .create_brushes:
         invoke  CreateSolidBrush,dword [themeBackColor]
         mov     dword [hThemeBrush],eax
         invoke  CreateSolidBrush,dword [themeStatusBackColor]
         mov     dword [hThemeStatusBrush],eax
+        invoke  CreateSolidBrush,dword [themeMenuBackColor]
+        mov     dword [hThemeMenuBrush],eax
+
         call    UpdateThemeMenu
-        cmp     dword [hWndMain],0
-        je      .find
-        invoke  InvalidateRect,dword [hWndMain],0,TRUE
-.find:
+        call    ApplyMenuTheme
+        stdcall ApplyDwmThemeToWindow,dword [hWndMain]
         cmp     dword [hFindReplace],0
-        je      .done
-        invoke  InvalidateRect,dword [hFindReplace],0,TRUE
-.done:
+        je      .redraw
+        stdcall ApplyDwmThemeToWindow,dword [hFindReplace]
+.redraw:
+        call    RedrawThemeWindows
         ret
 
 UpdateThemeMenu:
@@ -1184,6 +1358,7 @@ CreateApplicationMenu:
 .wrap_off:
         invoke  CheckMenuItem,dword [hFormatMenu],ID_FORMAT_WRAP,MF_BYCOMMAND or MF_UNCHECKED
 .draw:
+        call    ApplyMenuTheme
         invoke  DrawMenuBar,dword [hWndMain]
         ret
 
@@ -1246,6 +1421,7 @@ ShowFindReplaceDialog:
         test    eax,eax
         jz      .done
         mov     dword [hFindReplace],eax
+        stdcall ApplyDwmThemeToWindow,eax
 .show_existing:
         invoke  ShowWindow,dword [hFindReplace],SW_SHOWNORMAL
         invoke  SetForegroundWindow,dword [hFindReplace]
@@ -2843,6 +3019,7 @@ ownsEditorFont     dd 0
 oldFontOwned       dd 0
 hThemeBrush        dd 0
 hThemeStatusBrush  dd 0
+hThemeMenuBrush    dd 0
 hFindReplace       dd 0
 hFindText          dd 0
 hReplaceText       dd 0
@@ -2857,6 +3034,10 @@ hEncodingMenu      dd 0
 hLanguageMenu      dd 0
 hHelpMenu          dd 0
 hAccel             dd 0
+hDwmApi            dd 0
+pDwmSetWindowAttribute dd 0
+dwmApiChecked      dd 0
+dwmDarkModeValue   dd 0
 
 modified           dd 0
 contentModified    dd 0
@@ -2876,6 +3057,10 @@ themeBackColor       dd 00FFFFFFh
 themeTextColor       dd 00241C18h
 themeStatusBackColor dd 00F8F4F1h
 themeStatusTextColor dd 00483A32h
+themeMenuBackColor  dd 00F8F4F1h
+themeBorderColor    dd 00B8AAA2h
+themeCaptionColor   dd 00F8F4F1h
+themeCaptionTextColor dd 00241C18h
 
 statusCharCount    dd 0
 statusTokenCount   dd 0
@@ -2946,6 +3131,15 @@ openFileName OPENFILENAME
 printDialog PRINTDLG
 fontDialog CHOOSEFONT
 editorLogFont LOGFONT
+
+menuInfo:
+ .cbSize         dd MENUINFO_SIZE_VALUE
+ .fMask          dd MIM_BACKGROUND_VALUE or MIM_APPLYTOSUBMENUS_VALUE
+ .dwStyle        dd 0
+ .cyMax          dd 0
+ .hbrBack        dd 0
+ .dwContextHelpID dd 0
+ .dwMenuData     dd 0
 
 printDocInfo:
  .cbSize      dd 0
@@ -3041,6 +3235,9 @@ encNameCp850       du 'OEM 850',0
 extensionTxt       du '.txt',0
 extensionMd        du '.md',0
 
+dwmApiLibraryName  du 'dwmapi.dll',0
+dwmSetWindowAttributeName db 'DwmSetWindowAttribute',0
+
 include 'src\localization.inc'
 
 ; ----- imports ----------------------------------------------------------------
@@ -3071,7 +3268,10 @@ import kernel32,\
        lstrcatW,'lstrcatW',\
        lstrlenW,'lstrlenW',\
        CompareStringW,'CompareStringW',\
-       MulDiv,'MulDiv'
+       MulDiv,'MulDiv',\
+       LoadLibraryW,'LoadLibraryW',\
+       GetProcAddress,'GetProcAddress',\
+       FreeLibrary,'FreeLibrary'
 
 import user32,\
        RegisterClassW,'RegisterClassW',\
@@ -3091,6 +3291,7 @@ import user32,\
        CreatePopupMenu,'CreatePopupMenu',\
        AppendMenuW,'AppendMenuW',\
        SetMenu,'SetMenu',\
+       SetMenuInfo,'SetMenuInfo',\
        DrawMenuBar,'DrawMenuBar',\
        DestroyMenu,'DestroyMenu',\
        CheckMenuRadioItem,'CheckMenuRadioItem',\
@@ -3099,6 +3300,7 @@ import user32,\
        MoveWindow,'MoveWindow',\
        GetClientRect,'GetClientRect',\
        InvalidateRect,'InvalidateRect',\
+       RedrawWindow,'RedrawWindow',\
        FillRect,'FillRect',\
        GetDlgItem,'GetDlgItem',\
        SetFocus,'SetFocus',\
@@ -3172,9 +3374,9 @@ icon main_icon,icon_data,'src\assets\FasmNotepad.ico'
 
 versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
             'FileDescription','FASM Notepad',\
-            'FileVersion','1.3.1',\
+            'FileVersion','1.3.2',\
             'ProductName','FASM Notepad',\
-            'ProductVersion','1.3.1',\
+            'ProductVersion','1.3.2',\
             'OriginalFilename','FasmNotepad.exe',\
             'LegalCopyright','Copyright (c) 2026 zeittresor - MIT License',\
             'Comments','Source: github.com/zeittresor/fasm_notepad'
